@@ -18,7 +18,8 @@ private val MonoDark = darkColorScheme(
     surfaceVariant = Color(0xFF1A1A1A), onSurfaceVariant = Color(0xFFBBBBBB),
 )
 
-val Dim = Color(0xFF9A9A9A)
+/** Secondary text. Bright for a grey: the panel is matte and eats contrast. */
+val Dim = Color(0xFFB8B8B8)
 val RuleGrey = Color(0xFF262626)
 
 @Composable

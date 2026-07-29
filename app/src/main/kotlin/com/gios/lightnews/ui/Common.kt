@@ -147,10 +147,14 @@ fun ListRow(
                     maxLines = 1,
                 )
             }
+            // White whether or not it has been read: dimming the subject made an opened
+            // issue unreadable on a matte greyscale panel. Unread is carried by the dot,
+            // which exists precisely because brightness is the only signal this display
+            // renders reliably.
             Text(
                 subject,
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (unread) Color.White else Dim,
+                color = Color.White,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 3.dp),

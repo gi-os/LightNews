@@ -238,7 +238,7 @@ object HtmlRewriter {
         }
         .ln-meta {
           font-size: 12px !important; letter-spacing: 1.2px !important; text-transform: uppercase;
-          color: #9a9a9a !important; margin: 0;
+          color: #b8b8b8 !important; margin: 0;
         }
         .ln-rule { border: 0; border-top: 1px solid #2b2b2b; margin: 0 0 18px; }
     """.trimIndent()
