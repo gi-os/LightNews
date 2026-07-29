@@ -59,7 +59,44 @@ class AuthManager(context: Context) {
         ?.let { runCatching { AuthState.jsonDeserialize(it) }.getOrNull() }
         ?: AuthState()
 
-    val isConfigured: Boolean get() = BuildConfig.GMAIL_CLIENT_ID.isNotEmpty()
+    /**
+     * The OAuth client id, from settings if one was entered there, otherwise whatever the
+     * build was compiled with.
+     *
+     * Runtime entry is possible at all because the redirect scheme is the package name,
+     * not the reversed client id — so the manifest doesn't depend on which id is in use,
+     * and a released APK with no id compiled in is still a working app.
+     */
+    val clientId: String
+        get() = prefs.getString(KEY_CLIENT_ID, null)?.takeIf { it.isNotBlank() }
+            ?: BuildConfig.GMAIL_CLIENT_ID
+
+    val isConfigured: Boolean get() = clientId.isNotEmpty()
+
+    /**
+     * Store a client id typed or scanned by the user. Returns false if it doesn't look
+     * like one, rather than letting the browser fail with `invalid_client` later.
+     *
+     * Changing it drops any existing credentials: a refresh token belongs to the client
+     * that issued it, and AppAuth would keep presenting the old one.
+     */
+    suspend fun setClientId(raw: String): Boolean {
+        // Tolerate the whole local.properties line, and the URL-ish forms a QR might hold.
+        val cleaned = raw.trim()
+            .removePrefix("lightnews:")
+            .removePrefix("gmailClientId=")
+            .trim()
+            .trim('"')
+        if (!cleaned.endsWith(CLIENT_ID_SUFFIX) || cleaned.length <= CLIENT_ID_SUFFIX.length) {
+            return false
+        }
+        if (cleaned == clientId) return true
+        refreshLock.withLock {
+            state = AuthState()
+            prefs.edit().putString(KEY_CLIENT_ID, cleaned).remove(KEY_STATE).apply()
+        }
+        return true
+    }
 
     val isSignedIn: Boolean get() = state.isAuthorized
 
@@ -85,7 +122,7 @@ class AuthManager(context: Context) {
     fun authorizationIntent(): Intent {
         val request = AuthorizationRequest.Builder(
             CONFIG,
-            BuildConfig.GMAIL_CLIENT_ID,
+            clientId,
             ResponseTypeValues.CODE,
             Uri.parse(BuildConfig.OAUTH_REDIRECT),
         )
@@ -185,6 +222,8 @@ class AuthManager(context: Context) {
 
     companion object {
         private const val KEY_STATE = "auth_state"
+        private const val KEY_CLIENT_ID = "client_id"
+        private const val CLIENT_ID_SUFFIX = ".apps.googleusercontent.com"
         const val SCOPE_GMAIL = "https://www.googleapis.com/auth/gmail.modify"
 
         val CONFIG = AuthorizationServiceConfiguration(

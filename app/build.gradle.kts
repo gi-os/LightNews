@@ -8,12 +8,15 @@ plugins {
 }
 
 /*
- * The Gmail OAuth client id is per-developer, so it lives outside the repo:
- * local.properties on a workstation, the GMAIL_CLIENT_ID env var in CI.
+ * A default Gmail OAuth client id, and entirely optional.
  *
- * An installed-app client has no secret, so the id is not sensitive — it is kept out
- * of git only so a fork doesn't silently authorise against someone else's project.
- * A build with no id configured still compiles; the app just shows the setup screen.
+ * The id can also be pasted or scanned into the app at runtime (Settings -> Client ID),
+ * which is what makes a plain release APK usable by anyone — there is no secret to bake
+ * in, because an installed-app client doesn't have one and the redirect scheme is fixed
+ * by the package name rather than the id.
+ *
+ * Set it here only to skip that step on your own device: local.properties on a
+ * workstation, or a GMAIL_CLIENT_ID secret in CI. A build with neither still works.
  */
 val clientId: String = run {
     val fromEnv = System.getenv("GMAIL_CLIENT_ID")?.trim().orEmpty()
@@ -117,6 +120,9 @@ dependencies {
 
     // Gmail REST over plain HTTP — the official client library drags in half of GAX.
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // QR scanning, so the OAuth client id doesn't have to be typed on a 3.9" keyboard.
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
     // HTML: rewrite for the panel, and extract plain text when there is no WebView.
     implementation("org.jsoup:jsoup:1.18.3")

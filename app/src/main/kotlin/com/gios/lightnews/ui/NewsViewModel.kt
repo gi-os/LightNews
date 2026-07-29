@@ -34,6 +34,9 @@ data class Settings(
     val mode: RenderMode,
     val images: Boolean,
     val lastSyncMs: Long,
+    val clientIdSet: Boolean,
+    /** Enough of the id to recognise, never the whole thing on a shared screen. */
+    val clientIdHint: String,
 )
 
 class NewsViewModel(app: Application) : AndroidViewModel(app) {
@@ -54,7 +57,6 @@ class NewsViewModel(app: Application) : AndroidViewModel(app) {
     private val _settings = MutableStateFlow(snapshot())
     val settings: StateFlow<Settings> = _settings.asStateFlow()
 
-    val isConfigured: Boolean get() = repo.auth.isConfigured
     val isSignedIn: Boolean get() = repo.auth.isSignedIn
     val account: String? get() = repo.auth.account
 
@@ -69,6 +71,8 @@ class NewsViewModel(app: Application) : AndroidViewModel(app) {
         mode = repo.renderMode,
         images = repo.loadImages,
         lastSyncMs = repo.lastSyncMs,
+        clientIdSet = repo.auth.isConfigured,
+        clientIdHint = repo.auth.clientId.substringBefore('-').take(14),
     )
 
     fun sync() {
@@ -131,6 +135,22 @@ class NewsViewModel(app: Application) : AndroidViewModel(app) {
         repo.signOut()
         _settings.value = snapshot()
         _state.value = UiState(needsAuth = true)
+    }
+
+    /**
+     * Accepts a client id typed in settings or scanned off the companion QR page.
+     *
+     * A wrong id is worth catching here: the alternative is a browser round trip that
+     * ends in Google's own invalid_client page, which says nothing about what to fix.
+     */
+    fun setClientId(raw: String) = viewModelScope.launch {
+        val accepted = repo.auth.setClientId(raw)
+        _settings.value = snapshot()
+        _state.value = if (accepted) {
+            UiState(needsAuth = !repo.auth.isSignedIn)
+        } else {
+            _state.value.copy(message = "That doesn't look like a Google client id")
+        }
     }
 
     /* ----------------------------------------------------------------- settings */

@@ -88,10 +88,12 @@ fun ListScreen(
             }
 
             when {
-                !vm.isConfigured -> EmptyState(
-                    "This build has no Gmail client id.\n\nSee the README: create an " +
-                        "Android OAuth client, then put gmailClientId in local.properties " +
-                        "and rebuild.",
+                !settings.clientIdSet -> EmptyState(
+                    "No Google client ID yet.\n\nMake an Android OAuth client for " +
+                        "com.gios.lightnews, then scan or paste its ID in settings. " +
+                        "The README has the steps.",
+                    action = "SETTINGS",
+                    onAction = onSettings,
                 )
 
                 state.needsAuth -> EmptyState(

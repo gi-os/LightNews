@@ -1,5 +1,6 @@
 package com.gios.lightnews.ui
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -36,11 +37,13 @@ import com.gios.lightnews.util.formatAge
 fun SettingsScreen(
     vm: NewsViewModel,
     onSignIn: () -> Unit,
+    onScanClientId: () -> Unit,
     onBack: () -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     var editingLabel by remember { mutableStateOf(false) }
+    var editingClientId by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = Color.Black,
@@ -61,8 +64,20 @@ fun SettingsScreen(
         ) {
             SectionLabel("MAILBOX")
             MenuRow(
+                label = "Client ID",
+                sub = if (settings.clientIdSet) {
+                    "${settings.clientIdHint}… · Google OAuth client"
+                } else {
+                    "needed before you can sign in"
+                },
+                detail = if (settings.clientIdSet) "CHANGE" else "SET",
+                onClick = { editingClientId = true },
+            )
+            Rule()
+            MenuRow(
                 label = if (vm.isSignedIn) "Signed in" else "Not signed in",
-                sub = vm.account ?: if (vm.isConfigured) "tap to authorise" else "no client id in this build",
+                sub = vm.account
+                    ?: if (settings.clientIdSet) "tap to authorise" else "set a client ID first",
                 detail = if (vm.isSignedIn) "SIGN OUT" else null,
                 onClick = { if (vm.isSignedIn) vm.signOut() else onSignIn() },
             )
@@ -119,6 +134,54 @@ fun SettingsScreen(
                 modifier = Modifier.padding(16.dp),
             )
         }
+    }
+
+    if (editingClientId) {
+        var draft by remember { mutableStateOf("") }
+        AlertDialog(
+            containerColor = Color.Black,
+            titleContentColor = Color.White,
+            textContentColor = Color.White,
+            onDismissRequest = { editingClientId = false },
+            title = { Text("Google client ID", style = MaterialTheme.typography.titleMedium) },
+            text = {
+                Column {
+                    Text(
+                        "Scanning is easier than typing 70 characters. Open the " +
+                            "companion page on a computer, paste the id there, and scan " +
+                            "the code it draws.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Dim,
+                    )
+                    Box(Modifier.padding(top = 14.dp)) {
+                        WideButton("SCAN QR") {
+                            editingClientId = false
+                            onScanClientId()
+                        }
+                    }
+                    OutlinedTextField(
+                        value = draft,
+                        onValueChange = { draft = it },
+                        singleLine = false,
+                        maxLines = 3,
+                        label = { Text("or paste it") },
+                        modifier = Modifier.padding(top = 16.dp),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = draft.isNotBlank(),
+                    onClick = {
+                        editingClientId = false
+                        vm.setClientId(draft)
+                    },
+                ) { Text("SAVE", color = if (draft.isBlank()) Dim else Color.White) }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingClientId = false }) { Text("CANCEL", color = Dim) }
+            },
+        )
     }
 
     if (editingLabel) {

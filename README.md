@@ -80,30 +80,36 @@ into it. Nested labels are fine; the app matches on the leaf name.
    - SHA-1 `74:7A:2D:9E:B8:3A:98:0A:4F:5D:AB:B9:07:B7:A5:A0:BF:D1:38:D4`
      (the committed `keystore/lightnews.jks`, which signs both debug and release)
 
-An Android client has no secret. The id is not sensitive.
+An Android client has no secret, and the ID is not sensitive.
 
-**The APKs on the Releases page have no client id compiled in** unless the repo secret
-below was set when they were built — without it the app opens straight onto the setup
-screen and cannot sign in.
+### 3. Install
 
-### 3. Build
+No rebuild, no secret. Grab the APK from
+[Releases](https://github.com/gi-os/LightNews/releases/latest) — add the repo to
+Obtainium, or `adb install -r LightNews-v*.apk`.
+
+Then give it the client ID. Typing 70 characters on a 3.9" keyboard is miserable, so
+there's a companion page: open <https://gi-os.github.io/LightNews/> on a computer, paste
+the ID, and it draws a QR. On the phone: **Settings → Client ID → SCAN QR**. Pasting works
+too, if you'd rather.
+
+The ID can live in the app because the redirect scheme is the package name rather than the
+reversed client ID, so nothing about the manifest depends on which ID is in use. An
+installed-app client has no secret, so there is nothing sensitive to hide either.
+
+### Or build it yourself
 
 ```bash
-echo 'gmailClientId=YOUR_ID.apps.googleusercontent.com' >> local.properties
+git clone https://github.com/gi-os/LightNews.git
+cd LightNews
+echo 'gmailClientId=YOUR_ID.apps.googleusercontent.com' >> local.properties  # optional
 ./gradlew :app:assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-For CI builds, set a repo secret `GMAIL_CLIENT_ID` instead. Push to `main` and the
-workflow cuts a signed GitHub Release that Obtainium can follow; the tag is
-`v<major>.<minor>.<run number>`, so it advances on every push without touching
-`versionName`.
-
-The redirect is `com.gios.lightnews:/oauth2redirect` — the package name, which Google
-accepts for an Android client because that client is validated by package plus SHA-1
-rather than by redirect URI. If a consent screen ever rejects it, the fallback is the
-reversed client id; `app/build.gradle.kts` has the one line to change and a note about
-what it costs.
+`local.properties` (or a `GMAIL_CLIENT_ID` repo secret in CI) only presets the ID so you
+can skip the scan on your own device. Every push to `main` cuts a signed release tagged
+`v<major>.<minor>.<run number>`, so the tag moves without touching `versionName`.
 
 ## Gotchas, in the order they'll bite
 
@@ -146,6 +152,7 @@ data/NewsDatabase.kt     metadata only — bodies are files under filesDir/bodie
 sync/SyncWorker.kt       hourly, unmetered
 ui/ReaderScreen.kt       HorizontalPager, dwell-to-read
 ui/HtmlView.kt           WebView with JS off, plus the provider probe
+docs/index.html          the client-ID QR page, all client-side
 ```
 
 Sync is two list calls: one for the label, one for the label ∩ `UNREAD`. Everything in

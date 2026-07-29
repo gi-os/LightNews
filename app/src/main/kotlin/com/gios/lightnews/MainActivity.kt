@@ -16,6 +16,8 @@ import com.gios.lightnews.ui.NewsViewModel
 import com.gios.lightnews.ui.ReaderScreen
 import com.gios.lightnews.ui.SettingsScreen
 import com.gios.lightnews.ui.theme.LightNewsTheme
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,6 +35,11 @@ class MainActivity : ComponentActivity() {
                 val signIn = rememberLauncherForActivityResult(
                     ActivityResultContracts.StartActivityForResult(),
                 ) { result -> vm.onAuthResult(result.data) }
+
+                // The companion page can prefix the payload; setClientId accepts either.
+                val scanClientId = rememberLauncherForActivityResult(ScanContract()) { result ->
+                    result.contents?.let { vm.setClientId(it) }
+                }
 
                 val startSignIn = {
                     // AppAuth throws ActivityNotFoundException when it finds no browser,
@@ -65,6 +72,13 @@ class MainActivity : ComponentActivity() {
                         SettingsScreen(
                             vm = vm,
                             onSignIn = { startSignIn() },
+                            onScanClientId = {
+                                scanClientId.launch(
+                                    ScanOptions()
+                                        .setBeepEnabled(false)
+                                        .setPrompt("Scan the client ID code"),
+                                )
+                            },
                             onBack = { nav.popBackStack() },
                         )
                     }
