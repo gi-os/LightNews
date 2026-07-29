@@ -59,6 +59,15 @@ guarantees can never resolve, so root-relative paths and stray anchors fail loca
 instead of quietly fetching from a real host. http rather than https so that plain-http
 artwork isn't mixed content, which WebView handles differently release to release.
 
+Sponsor blocks are removed by default (**Settings → Block ads**), in two passes: anything
+served from an ad network goes by host, and publisher-built ads are found by their label —
+SPONSORED, TOGETHER WITH, presented by — with the card around the label removed by climbing
+to the largest ancestor still under a character cap. The cap is the whole safety argument:
+a real ad is a few hundred characters, so a bigger block means the guess was wrong and it's
+left alone. Where something was cut, a dim `— ad —` stays behind, so a wrong guess is
+visible rather than silent. It's render-time, so switching it off restores the ads with no
+refetch.
+
 Tracking pixels are dropped in both modes. `cid:` images are inlined as data URIs when
 the message is cached, smallest first, up to 400 KB — a WebView cannot attach an OAuth
 header, so anything not inlined by then can never load. Turning images on therefore

@@ -178,10 +178,10 @@ private fun ArticlePage(
 
     // Keyed on the settings too, so a mode change clears the old document instead of
     // showing it under the new background until the re-render lands.
-    var rendered by remember(item.id, settings.mode, settings.images) {
+    var rendered by remember(item.id, settings.mode, settings.images, settings.blockAds) {
         mutableStateOf<Rendered?>(null)
     }
-    LaunchedEffect(item.id, settings.mode, settings.images) {
+    LaunchedEffect(item.id, settings.mode, settings.images, settings.blockAds) {
         rendered = vm.rendered(item.id, webViewAvailable)
     }
 

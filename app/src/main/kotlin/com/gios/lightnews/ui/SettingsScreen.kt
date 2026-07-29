@@ -103,6 +103,13 @@ fun SettingsScreen(
             )
             Rule()
             MenuRow(
+                label = "Block ads",
+                sub = "sponsor blocks, and anything from an ad network",
+                detail = if (settings.blockAds) "ON" else "OFF",
+                onClick = { vm.setBlockAds(!settings.blockAds) },
+            )
+            Rule()
+            MenuRow(
                 label = "Images",
                 sub = "off is faster and blocks tracking pixels",
                 detail = if (settings.images) "ON" else "OFF",

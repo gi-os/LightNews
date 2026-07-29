@@ -45,6 +45,7 @@ object HtmlRewriter {
         rawHtml: String,
         mode: RenderMode,
         loadImages: Boolean,
+        blockAds: Boolean = true,
         meta: ArticleMeta? = null,
     ): String {
         val doc = Jsoup.parse(rawHtml)
@@ -59,6 +60,7 @@ object HtmlRewriter {
         // Anything still pointing at a MIME part missed the inlining pass and can never
         // load, so it goes rather than rendering as a broken-image glyph.
         doc.select("img[src^=cid:]").remove()
+        if (blockAds) stripAds(doc)
 
         if (!loadImages) {
             doc.select("img, picture, source, video, iframe").remove()
@@ -78,6 +80,64 @@ object HtmlRewriter {
         meta?.let { prependHeader(doc, it) }
         // Links open in the system browser; see the WebViewClient in HtmlView.
         return doc.outerHtml()
+    }
+
+    /**
+     * Remove sponsor blocks.
+     *
+     * Two passes, because newsletter ads leave two different fingerprints. Anything served
+     * from an ad network is identifiable by host and simply goes. The rest are hand-built
+     * by the publisher and identifiable only by their label — "SPONSORED", "TOGETHER
+     * WITH", "presented by" — so the label is matched and the card *around* it removed.
+     *
+     * The card is found by climbing from the label to the largest ancestor still under a
+     * size cap. That cap is the whole safety story: a real ad is a few hundred characters,
+     * so anything bigger means the guess was wrong and the block is left alone. Better a
+     * surviving ad than a swallowed article.
+     */
+    private fun stripAds(doc: Document) {
+        for (host in AD_HOSTS) {
+            // Quoted: an unquoted CSS attribute value can't contain a dot.
+            doc.select("img[src*='$host'], iframe[src*='$host'], a[href*='$host']").remove()
+        }
+
+        val bodyLength = doc.body().text().length
+        val cap = minOf(AD_BLOCK_MAX_CHARS, maxOf(320, (bodyLength * 0.30).toInt()))
+
+        for (label in doc.select("p, span, td, div, h1, h2, h3, h4, strong, b, font, a")) {
+            // Detached by an earlier iteration removing an ancestor.
+            if (label.ownerDocument() == null) continue
+            val text = label.ownText().trim()
+            if (text.length < 3 || text.length > 80) continue
+            if (!looksLikeAdLabel(text)) continue
+
+            val card = cardAround(label, cap) ?: continue
+            card.before(Element("p").addClass("ln-cut").text("— ad —"))
+            card.remove()
+        }
+    }
+
+    /**
+     * A label, not prose. "SPONSORED" and "Together with Acme" qualify; a sentence that
+     * happens to contain the word "sponsored" does not, which is why the marker has to be
+     * at the start and the whole string has to be short.
+     */
+    private fun looksLikeAdLabel(text: String): Boolean {
+        val normalised = text.lowercase().trim('*', '-', '—', '·', '|', ' ', ':', '[', ']')
+        return AD_LABELS.any { normalised.startsWith(it) }
+    }
+
+    /** Climb from the label to the biggest ancestor that is still ad-sized. */
+    private fun cardAround(label: Element, cap: Int): Element? {
+        if (label.text().length > cap) return null
+        var best: Element = label
+        var parent = label.parent()
+        while (parent != null && parent.normalName() !in setOf("body", "html")) {
+            if (parent.text().length > cap) break
+            best = parent
+            parent = parent.parent()
+        }
+        return best
     }
 
     /**
@@ -101,9 +161,14 @@ object HtmlRewriter {
     }
 
     /** Plain text, for the case where LightOS turns out to ship no WebView provider. */
-    fun toReadableText(rawHtml: String, meta: ArticleMeta? = null): String {
+    fun toReadableText(
+        rawHtml: String,
+        meta: ArticleMeta? = null,
+        blockAds: Boolean = true,
+    ): String {
         val doc = Jsoup.parse(rawHtml)
         doc.select("script, style, head").remove()
+        if (blockAds) stripAds(doc)
         doc.select("br").after("\n")
         doc.select("p, div, tr, li, h1, h2, h3, h4, blockquote, table").after("\n\n")
         doc.select("li").prepend("• ")
@@ -196,6 +261,29 @@ object HtmlRewriter {
      * Outlook and most mail-merge tooling emit uppercase properties. Not a raw string:
      * a raw string cannot escape the anchoring dollar.
      */
+    /** Ad networks and newsletter sponsorship marketplaces, matched anywhere in a URL. */
+    private val AD_HOSTS = listOf(
+        "doubleclick.net", "googlesyndication.com", "googleadservices.com", "2mdn.net",
+        "carbonads.com", "carbonads.net", "buysellads.com", "ethicalads.io", "paved.com",
+        "adnxs.com", "adsrvr.org", "adform.net", "criteo.", "pubmatic.com",
+        "rubiconproject.com", "media.net", "taboola.com", "outbrain.com", "zemanta.com",
+        "adroll.com", "quantserve.com", "liadm.com", "sponsored.by", "swapstack.co",
+    )
+
+    /**
+     * How a publisher announces an ad. Matched at the start of a short string only — the
+     * word "sponsored" inside a sentence is journalism, not a sponsor block.
+     */
+    private val AD_LABELS = listOf(
+        "sponsored", "sponsor message", "our sponsor", "a message from", "presented by",
+        "advertisement", "together with", "in partnership with", "paid partnership",
+        "paid post", "brought to you by", "promoted", "partner content", "from our partner",
+        "supported by", "ad from",
+    )
+
+    /** Above this, the block is an article and the label was a coincidence. */
+    private const val AD_BLOCK_MAX_CHARS = 900
+
     private val TINY_STYLE = Regex(
         "(?:^|[;\\s])(?:max-|min-)?(?:width|height)\\s*:\\s*[0-2](?:px)?\\s*(?:;|!|\$)",
         RegexOption.IGNORE_CASE,
@@ -241,6 +329,9 @@ object HtmlRewriter {
           color: #b8b8b8 !important; margin: 0;
         }
         .ln-rule { border: 0; border-top: 1px solid #2b2b2b; margin: 0 0 18px; }
+        /* Left where a sponsor block was, so a wrong guess is visible rather than silent. */
+        .ln-cut { font-size: 11px !important; letter-spacing: 1.5px; color: #5e5e5e !important;
+                  margin: 14px 0; }
     """.trimIndent()
 
     private val PAPER_CSS = """
@@ -264,5 +355,7 @@ object HtmlRewriter {
         .ln-meta { font-size: 12px !important; letter-spacing: 1.2px; text-transform: uppercase;
                    color: #666 !important; margin: 0; }
         .ln-rule { border: 0; border-top: 1px solid #ddd; margin: 14px 18px 16px; }
+        .ln-cut { font-size: 11px !important; letter-spacing: 1.5px; color: #999 !important;
+                  margin: 14px 18px; }
     """.trimIndent()
 }

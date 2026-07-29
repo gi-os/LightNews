@@ -34,6 +34,7 @@ data class Settings(
     val label: String,
     val mode: RenderMode,
     val images: Boolean,
+    val blockAds: Boolean,
     val lastSyncMs: Long,
     val clientIdSet: Boolean,
     /** Enough of the id to recognise, never the whole thing on a shared screen. */
@@ -71,6 +72,7 @@ class NewsViewModel(app: Application) : AndroidViewModel(app) {
         label = repo.labelName,
         mode = repo.renderMode,
         images = repo.loadImages,
+        blockAds = repo.blockAds,
         lastSyncMs = repo.lastSyncMs,
         clientIdSet = repo.auth.isConfigured,
         clientIdHint = repo.auth.clientId.substringBefore('-').take(14),
@@ -177,6 +179,12 @@ class NewsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun toggleRenderMode() {
         repo.renderMode = if (repo.renderMode == RenderMode.DARK) RenderMode.PAPER else RenderMode.DARK
+        _settings.value = snapshot()
+    }
+
+    /** Render-time only, so this needs no refetch — just a re-render of the open page. */
+    fun setBlockAds(enabled: Boolean) {
+        repo.blockAds = enabled
         _settings.value = snapshot()
     }
 

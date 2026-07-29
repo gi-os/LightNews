@@ -78,6 +78,14 @@ class NewsRepository private constructor(context: Context) {
         get() = prefs.getBoolean(KEY_IMAGES, true)
         private set(value) = prefs.edit().putBoolean(KEY_IMAGES, value).apply()
 
+    /**
+     * Strip sponsor blocks at render time — not at fetch time, so switching it off shows
+     * the ads again without refetching the mailbox.
+     */
+    var blockAds: Boolean
+        get() = prefs.getBoolean(KEY_BLOCK_ADS, true)
+        set(value) = prefs.edit().putBoolean(KEY_BLOCK_ADS, value).apply()
+
     var lastSyncMs: Long
         get() = prefs.getLong(KEY_LAST_SYNC, 0L)
         private set(value) = prefs.edit().putLong(KEY_LAST_SYNC, value).apply()
@@ -202,9 +210,11 @@ class NewsRepository private constructor(context: Context) {
                     }
                 }
                 if (webViewAvailable) {
-                    Rendered.Html(HtmlRewriter.rewrite(html, renderMode, loadImages, meta))
+                    Rendered.Html(
+                        HtmlRewriter.rewrite(html, renderMode, loadImages, blockAds, meta),
+                    )
                 } else {
-                    Rendered.Text(HtmlRewriter.toReadableText(html, meta))
+                    Rendered.Text(HtmlRewriter.toReadableText(html, meta, blockAds))
                 }
             }.getOrElse { snippet(id) }
         }
@@ -447,6 +457,7 @@ class NewsRepository private constructor(context: Context) {
         private const val KEY_LABEL_ID = "label_id"
         private const val KEY_MODE = "render_mode"
         private const val KEY_IMAGES = "load_images"
+        private const val KEY_BLOCK_ADS = "block_ads"
         private const val KEY_LAST_SYNC = "last_sync"
 
         /** How many of the label's newest messages one sync looks at. */
