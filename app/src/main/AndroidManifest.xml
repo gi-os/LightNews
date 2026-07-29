@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!--
+      Android 11+ hides other packages unless declared. AppAuth needs to see the
+      browsers on the device to pick one, and on LightOS there is exactly one. Both
+      schemes are listed because BrowserSelector probes with http, and a browser
+      invisible to it means the sign-in button does nothing at all.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="http" />
+        </intent>
+    </queries>
+
+    <!--
+      Plenty of newsletters still serve their artwork over http. The app's own traffic
+      is https by construction (the Gmail and OAuth endpoints are hardcoded), so this
+      only affects subresources inside the reader's WebView.
+    -->
+    <application
+        android:name=".LightNewsApp"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="Newsletters"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.LightNews">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="Newsletters"
+            android:theme="@style/Theme.LightNews">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
