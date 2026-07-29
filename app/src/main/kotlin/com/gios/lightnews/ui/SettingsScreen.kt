@@ -154,10 +154,14 @@ fun SettingsScreen(
                         color = Dim,
                     )
                     Box(Modifier.padding(top = 14.dp)) {
-                        WideButton("SCAN QR") {
-                            editingClientId = false
-                            onScanClientId()
-                        }
+                        // Named, because WideButton's trailing parameter is the modifier.
+                        WideButton(
+                            label = "SCAN QR",
+                            onClick = {
+                                editingClientId = false
+                                onScanClientId()
+                            },
+                        )
                     }
                     OutlinedTextField(
                         value = draft,
