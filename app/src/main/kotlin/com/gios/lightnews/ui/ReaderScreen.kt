@@ -24,6 +24,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +38,7 @@ import com.gios.lightnews.data.Rendered
 import com.gios.lightnews.ui.theme.Dim
 import com.gios.lightnews.util.RenderMode
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * The reader. One newsletter per page, swipe for the next.
@@ -94,6 +96,7 @@ private fun Pages(
     val settings by vm.settings.collectAsStateWithLifecycle()
     val pager = rememberPagerState(initialPage = startIndex) { ordered.size }
     val current = ordered.getOrNull(pager.currentPage)
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(pager.settledPage) {
         val settled = ordered.getOrNull(pager.settledPage) ?: return@LaunchedEffect
@@ -149,13 +152,26 @@ private fun Pages(
             beyondViewportPageCount = 1,
             key = { ordered[it].id },
         ) { page ->
-            ArticlePage(vm, ordered[page])
+            ArticlePage(
+                vm = vm,
+                item = ordered[page],
+                // The WebView swallows every touch that lands on an article, so it is also
+                // the thing that tells us a page turn was meant.
+                onSwipe = { direction ->
+                    val target = (page + direction).coerceIn(0, ordered.lastIndex)
+                    if (target != page) scope.launch { pager.animateScrollToPage(target) }
+                },
+            )
         }
     }
 }
 
 @Composable
-private fun ArticlePage(vm: NewsViewModel, item: NewsletterEntity) {
+private fun ArticlePage(
+    vm: NewsViewModel,
+    item: NewsletterEntity,
+    onSwipe: (Int) -> Unit,
+) {
     val context = LocalContext.current
     val webViewAvailable = remember { WebViewSupport.isAvailable(context) }
     val settings by vm.settings.collectAsStateWithLifecycle()
@@ -182,6 +198,7 @@ private fun ArticlePage(vm: NewsViewModel, item: NewsletterEntity) {
                 mode = settings.mode,
                 loadImages = settings.images,
                 modifier = Modifier.fillMaxSize(),
+                onSwipe = onSwipe,
             )
 
             is Rendered.Text -> SelectionContainer {

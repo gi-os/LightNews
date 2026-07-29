@@ -7,11 +7,11 @@ import android.graphics.Color as AndroidColor
 import android.net.Uri
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewConfiguration
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import com.gios.lightnews.util.RenderMode
@@ -42,25 +42,30 @@ object WebViewSupport {
 }
 
 /**
- * A WebView that claims the gesture as soon as the drag is vertical.
+ * A WebView that owns every gesture inside it, and reports page turns itself.
  *
- * Inside a HorizontalPager, Compose sees every pointer event first, and a scroll that
- * starts a few degrees off vertical gets claimed by the pager — so the article jerks, the
- * fling dies halfway, and sometimes you turn the page while trying to read. There is no
- * nested-scroll contract between a View and a Compose scrollable to fall back on:
- * requestDisallowInterceptTouchEvent is the mechanism, and Compose's AndroidView host
- * honours it.
+ * The first attempt let Compose arbitrate and only claimed vertical drags once they passed
+ * the touch slop. It still stuck: by the time the slop is crossed the pager may already
+ * have taken the gesture, and a fling that starts a few degrees off vertical gets handed
+ * over mid-flight. There is no nested-scroll contract between a View and a Compose
+ * scrollable to negotiate this properly.
  *
- * The decision waits for the first ACTION_MOVE past the touch slop. Claiming on ACTION_DOWN
- * would be simpler and would break paging entirely, because the pager would never get a
- * horizontal drag at all.
+ * So there is now exactly one arbiter. requestDisallowInterceptTouchEvent(true) fires on
+ * ACTION_DOWN, before anything can be claimed, which means the pager never sees a touch
+ * that lands on an article. The WebView scrolls, and on release it decides whether the
+ * gesture was a page turn and says so through [onSwipe]. Pages that aren't WebViews — the
+ * plain-text fallback — still drag the pager normally, because none of this runs there.
  */
-private class ReaderWebView(context: Context) : WebView(context) {
+private class ReaderWebView(
+    context: Context,
+    private val onSwipe: (Int) -> Unit,
+) : WebView(context) {
 
-    private val slop = ViewConfiguration.get(context).scaledTouchSlop
+    private val turnThreshold = 76f * context.resources.displayMetrics.density
+
     private var downX = 0f
     private var downY = 0f
-    private var decided = false
+    private var multiTouch = false
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -68,24 +73,27 @@ private class ReaderWebView(context: Context) : WebView(context) {
             MotionEvent.ACTION_DOWN -> {
                 downX = event.x
                 downY = event.y
-                decided = false
+                multiTouch = false
+                // Claimed immediately, not on the first move: whoever asks second loses.
+                parent?.requestDisallowInterceptTouchEvent(true)
             }
 
-            MotionEvent.ACTION_MOVE -> if (!decided) {
-                val dx = kotlin.math.abs(event.x - downX)
-                val dy = kotlin.math.abs(event.y - downY)
-                if (dy > slop && dy > dx) {
-                    // Reading. Mine until the finger lifts.
-                    decided = true
-                    parent?.requestDisallowInterceptTouchEvent(true)
-                } else if (dx > slop && dx >= dy) {
-                    // Turning the page. Let the pager have it.
-                    decided = true
+            // A pinch is a zoom, never a page turn.
+            MotionEvent.ACTION_POINTER_DOWN -> multiTouch = true
+
+            MotionEvent.ACTION_UP -> {
+                val dx = event.x - downX
+                val dy = event.y - downY
+                parent?.requestDisallowInterceptTouchEvent(false)
+                if (!multiTouch && kotlin.math.abs(dx) > turnThreshold &&
+                    kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.5f
+                ) {
+                    // Dragging left means going forwards, the way a page moves under a thumb.
+                    onSwipe(if (dx < 0) 1 else -1)
                 }
             }
 
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
-                parent?.requestDisallowInterceptTouchEvent(false)
+            MotionEvent.ACTION_CANCEL -> parent?.requestDisallowInterceptTouchEvent(false)
         }
         return super.onTouchEvent(event)
     }
@@ -98,11 +106,15 @@ fun HtmlView(
     mode: RenderMode,
     loadImages: Boolean,
     modifier: Modifier = Modifier,
+    onSwipe: (Int) -> Unit = {},
 ) {
+    // Held in a ref so the factory's callback always reaches the current lambda rather
+    // than the one captured when the WebView was created.
+    val swipe = rememberUpdatedState(onSwipe)
     AndroidView(
         modifier = modifier,
         factory = { context ->
-            ReaderWebView(context).apply {
+            ReaderWebView(context) { direction -> swipe.value(direction) }.apply {
                 settings.apply {
                     // Newsletters are documents. No newsletter needs a script, and off is
                     // both faster and one fewer way for an email to do something clever.
