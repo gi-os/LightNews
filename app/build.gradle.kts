@@ -30,11 +30,11 @@ val clientId: String = run {
 /*
  * The OAuth redirect. Google validates an Android client by package name and signing
  * certificate rather than by redirect URI, and accepts a custom scheme matching the
- * package name — so this is a constant, and AppAuth can have it in the manifest at
- * build time regardless of which client id is configured.
+ * package name — so this is a constant, and the manifest can declare it regardless of
+ * which client id is in use.
  *
- * If a consent screen ever rejects it, the other accepted form is the reversed client
- * id (what Google documents for iOS clients):
+ * If a consent screen ever rejects it, the other accepted form is the reversed client id
+ * (what Google documents for iOS clients):
  *
  *   "com.googleusercontent.apps." + clientId.removeSuffix(".apps.googleusercontent.com")
  *
@@ -61,7 +61,6 @@ android {
 
         buildConfigField("String", "GMAIL_CLIENT_ID", "\"$clientId\"")
         buildConfigField("String", "OAUTH_REDIRECT", "\"$redirectScheme:/oauth2redirect\"")
-        manifestPlaceholders["appAuthRedirectScheme"] = redirectScheme
     }
 
     signingConfigs {
@@ -113,10 +112,6 @@ dependencies {
 
     // Background sync. WorkManager sits on JobScheduler, so it needs no Play Services.
     implementation("androidx.work:work-runtime-ktx:2.10.0")
-
-    // OAuth. AppAuth drives the system browser; no Play Services either.
-    implementation("net.openid:appauth:0.11.1")
-    implementation("androidx.browser:browser:1.8.0")
 
     // Gmail REST over plain HTTP — the official client library drags in half of GAX.
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

@@ -147,9 +147,10 @@ fun SettingsScreen(
             text = {
                 Column {
                     Text(
-                        "Scanning is easier than typing 70 characters. Open the " +
-                            "companion page on a computer, paste the id there, and scan " +
-                            "the code it draws.",
+                        "Scanning beats typing 70 characters. Open the companion page on " +
+                            "a computer, paste the ID there, and scan the code it draws — " +
+                            "or scan the code from scripts/authorize.py, which signs in " +
+                            "without needing a browser on the phone.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Dim,
                     )
@@ -178,7 +179,7 @@ fun SettingsScreen(
                     enabled = draft.isNotBlank(),
                     onClick = {
                         editingClientId = false
-                        vm.setClientId(draft)
+                        vm.applyScanned(draft)
                     },
                 ) { Text("SAVE", color = if (draft.isBlank()) Dim else Color.White) }
             },

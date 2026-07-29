@@ -20,11 +20,18 @@ No inbox, no compose, no threads, no search. If it isn't in the label, it doesn'
 >   deadlock risk, a regex that ate legitimate images). The fixes are described where they
 >   live, in the comments.
 >
-> What is most likely to be wrong, in order:
+> Known and fixed on hardware: **AppAuth could not sign in at all.** Its BrowserSelector
+> keeps only browsers whose intent filter claims `CATEGORY_BROWSABLE` *and* the bare `http`
+> scheme with no host — its idea of a "full browser" — and the LightOS browser doesn't
+> qualify, so the library threw before making a request. The flow is now hand-rolled
+> against a plain `ACTION_VIEW`, which asks no such question. See `auth/AuthManager.kt`.
 >
-> 1. **The OAuth redirect.** If the LightOS browser doesn't hand
->    `com.gios.lightnews:/oauth2redirect` back to the app, sign-in dies silently after
->    consent and nothing downstream matters. Test this first.
+> What is most likely to still be wrong, in order:
+>
+> 1. **The redirect coming back.** `ACTION_VIEW` reliably *opens* the page; whether the
+>    LightOS browser then hands `com.gios.lightnews:/oauth2redirect` to the app is its
+>    business. If it doesn't, use `scripts/authorize.py` — that path needs no browser on
+>    the phone whatsoever.
 > 2. **How newsletters actually look** on a 1080×1240 monochrome panel. The CSS rewriting
 >    is reasoned, not seen. Expect to tune `DARK_CSS` in `util/Html.kt` after the first
 >    real issue.
@@ -97,6 +104,27 @@ The ID can live in the app because the redirect scheme is the package name rathe
 reversed client ID, so nothing about the manifest depends on which ID is in use. An
 installed-app client has no secret, so there is nothing sensitive to hide either.
 
+Then **SIGN IN**, which opens Google's consent page in whatever this phone uses for web
+pages, and comes back to the app through the custom scheme.
+
+### If the phone can't sign in
+
+Sign in from a computer instead and carry the result over by QR — the same way every other
+app on this phone gets its credentials:
+
+```bash
+# Google Cloud → Clients → Create client → Desktop app → Download JSON
+python3 scripts/authorize.py ~/Downloads/client_secret_*.json
+```
+
+It runs consent against a loopback redirect, exchanges the code, and opens a page with a
+QR on it. Scan that in **Settings → Client ID → SCAN QR** and the app is signed in having
+never opened a web page. A **Desktop app** client is required — a loopback redirect is the
+only kind Google accepts from a script, and Android clients can't use one.
+
+That QR carries a live refresh token. Close the tab and delete the temp file it names once
+the phone has scanned it.
+
 ### Or build it yourself
 
 ```bash
@@ -127,14 +155,16 @@ needs Play Services. So it polls: hourly on wi-fi via WorkManager, plus on app o
 WorkManager itself is fine without Play Services — it sits on JobScheduler.
 
 **Play Services was never needed for OAuth.** It only ever supplied the account-picker
-shortcut. AppAuth drives the phone's browser instead, with `AnyBrowserMatcher` because
-the LightOS browser doesn't advertise Custom Tabs and the default matcher would refuse
-to start.
+shortcut. The authorization-code flow from RFC 8252 needs a browser and nothing else.
 
-**If the browser swallows the redirect**, the flow dies silently after consent. Nothing
-in AppAuth can fix that; the fallback is to run consent on a laptop and QR the refresh
-token in, the way LightPass takes an API key. Worth testing first — everything else
-here is downstream of it.
+**OAuth libraries are the problem, not the phone.** AppAuth refused to start here because
+it couldn't find anything it would call a browser; the hand-rolled flow just fires an
+`ACTION_VIEW` and lets the OS decide. If a library ever goes back in, this is the thing to
+check first.
+
+**If the browser swallows the redirect**, consent succeeds and nothing comes back. That is
+what `scripts/authorize.py` is for — it moves the whole flow to a computer and hands over a
+refresh token by QR.
 
 **If LightOS ever ships without a WebView provider**, `WebViewSupport.isAvailable()`
 returns false and the reader falls back to jsoup-extracted plain text with link targets
@@ -143,7 +173,8 @@ inlined. Degraded, not broken.
 ## Layout
 
 ```
-auth/AuthManager.kt      AppAuth, token persistence, invalid_grant handling
+auth/AuthManager.kt      PKCE by hand, token persistence, invalid_grant handling
+scripts/authorize.py     desktop consent → refresh token → QR, for a phone with no browser
 gmail/GmailClient.kt     labels, list, get, attachments, batchModify
 gmail/MimeParser.kt      MIME tree walk, base64url, charset, cid parts
 util/Html.kt             the DARK/PAPER rewriters and the text fallback

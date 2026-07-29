@@ -1,7 +1,7 @@
 package com.gios.lightnews.ui
 
 import android.app.Application
-import android.content.Intent
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.gios.lightnews.data.NewsRepository
@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 data class UiState(
     val syncing: Boolean = false,
@@ -112,10 +113,13 @@ class NewsViewModel(app: Application) : AndroidViewModel(app) {
 
     /* --------------------------------------------------------------------- auth */
 
-    fun authorizationIntent(): Intent = repo.auth.authorizationIntent()
+    /** The consent URL. MainActivity hands it to whatever will open a web page. */
+    fun authorizationUri(): Uri = repo.auth.authorizationUri()
 
-    fun onAuthResult(data: Intent?) = viewModelScope.launch {
-        val ok = runCatching { repo.auth.onAuthorizationResult(data) }.getOrDefault(false)
+    /** The redirect coming back from that page. */
+    fun onRedirect(uri: Uri) = viewModelScope.launch {
+        val ok = runCatching { repo.auth.onRedirect(uri) }.getOrDefault(false)
+        _settings.value = snapshot()
         _state.value = _state.value.copy(
             needsAuth = !ok,
             message = if (ok) null else "Sign-in didn't complete",
@@ -138,19 +142,28 @@ class NewsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Accepts a client id typed in settings or scanned off the companion QR page.
+     * Everything that arrives by scan or paste, of which there are two kinds: a bare
+     * client id, and the JSON credential blob from scripts/authorize.py that carries a
+     * refresh token and so skips consent on the phone entirely.
      *
-     * A wrong id is worth catching here: the alternative is a browser round trip that
-     * ends in Google's own invalid_client page, which says nothing about what to fix.
+     * Validating here is worth it: the alternative is a round trip that ends on Google's
+     * own invalid_client page, which says nothing about what to fix.
      */
-    fun setClientId(raw: String) = viewModelScope.launch {
-        val accepted = repo.auth.setClientId(raw)
-        _settings.value = snapshot()
-        _state.value = if (accepted) {
-            UiState(needsAuth = !repo.auth.isSignedIn)
+    fun applyScanned(raw: String) = viewModelScope.launch {
+        val text = raw.trim()
+        val accepted = if (text.startsWith("{")) {
+            runCatching { repo.auth.setCredentials(JSONObject(text)) }.getOrDefault(false)
         } else {
-            _state.value.copy(message = "That doesn't look like a Google client id")
+            repo.auth.setClientId(text)
         }
+        _settings.value = snapshot()
+        if (!accepted) {
+            _state.value = _state.value.copy(message = "That isn't a client ID or a setup code")
+            return@launch
+        }
+        _state.value = UiState(needsAuth = !repo.auth.isSignedIn)
+        // A credential blob arrives already signed in, so there is mail to fetch.
+        if (repo.auth.isSignedIn) sync()
     }
 
     /* ----------------------------------------------------------------- settings */

@@ -9,10 +9,9 @@
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
     <!--
-      Android 11+ hides other packages unless declared. AppAuth needs to see the
-      browsers on the device to pick one, and on LightOS there is exactly one. Both
-      schemes are listed because BrowserSelector probes with http, and a browser
-      invisible to it means the sign-in button does nothing at all.
+      Android 11+ hides other packages unless declared. Launching an implicit intent
+      never consults this, but resolveActivity() does, and that is what decides whether
+      the app can tell the user in advance that nothing here opens a web page.
     -->
     <queries>
         <intent>
@@ -42,15 +41,32 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.LightNews">
 
+        <!--
+          singleTask so the OAuth redirect comes back into the running activity through
+          onNewIntent, rather than stacking a second copy on top of the reader.
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:icon="@mipmap/ic_launcher"
             android:label="Newsletters"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.LightNews">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+              The OAuth redirect: com.gios.lightnews:/oauth2redirect. Scheme only, no
+              host or path — Android will not match a path element unless a host is also
+              declared, and a redirect with a host is not what Google issues here.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.gios.lightnews" />
             </intent-filter>
         </activity>
     </application>
