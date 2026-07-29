@@ -11,11 +11,10 @@ No inbox, no compose, no threads, no search. If it isn't in the label, it doesn'
 > against the Gmail API docs and the LPIII's known constraints, and verified the only
 > ways available without the device:
 >
-> - **Compiles clean.** Every Kotlin file typechecks against the real dependency
->   classpath (extracted AAR `classes.jar` + `android.jar` API 35 + the Compose compiler
->   plugin), zero errors, zero warnings. There is no `aapt2` for linux-aarch64, so a full
->   Gradle build has not run either — resources, the manifest merge, and **Room's KSP
->   pass** are unproven. Your first `./gradlew` is the real test.
+> - **It builds.** The CI workflow's `assembleDebug`/`assembleRelease` passes, so the
+>   Kotlin compiles, Room's KSP pass generates, resources and the manifest merge cleanly,
+>   and the APK is signed with the pinned certificate. That is the whole toolchain — what
+>   it does not tell you is whether any of it behaves on the device.
 > - **Reviewed hard.** Two adversarial review passes found and fixed 17 runtime bugs
 >   (read-state corruption, a refetch that erased offline reads, orphaned cache files, a
 >   deadlock risk, a regex that ate legitimate images). The fixes are described where they
@@ -26,10 +25,11 @@ No inbox, no compose, no threads, no search. If it isn't in the label, it doesn'
 > 1. **The OAuth redirect.** If the LightOS browser doesn't hand
 >    `com.gios.lightnews:/oauth2redirect` back to the app, sign-in dies silently after
 >    consent and nothing downstream matters. Test this first.
-> 2. **Room's generated code**, since KSP never ran.
-> 3. **How newsletters actually look** on a 1080×1240 monochrome panel. The CSS rewriting
+> 2. **How newsletters actually look** on a 1080×1240 monochrome panel. The CSS rewriting
 >    is reasoned, not seen. Expect to tune `DARK_CSS` in `util/Html.kt` after the first
 >    real issue.
+> 3. **The sync's edge cases** — pagination, offline reads, a label that changes under it.
+>    Every one of those paths is argued for in a comment and has never actually run.
 >
 > It also asks for `gmail.modify`, which is a restricted scope — this reads and writes to
 > a real mailbox. Point it at an account you don't mind it touching first.
@@ -81,6 +81,10 @@ into it. Nested labels are fine; the app matches on the leaf name.
      (the committed `keystore/lightnews.jks`, which signs both debug and release)
 
 An Android client has no secret. The id is not sensitive.
+
+**The APKs on the Releases page have no client id compiled in** unless the repo secret
+below was set when they were built — without it the app opens straight onto the setup
+screen and cannot sign in.
 
 ### 3. Build
 
