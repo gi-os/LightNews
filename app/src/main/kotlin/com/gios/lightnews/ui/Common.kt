@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.gios.lightnews.ui.theme.Dim
+import com.gios.lightnews.ui.theme.ReadTitle
 import com.gios.lightnews.ui.theme.RuleGrey
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -147,14 +148,13 @@ fun ListRow(
                     maxLines = 1,
                 )
             }
-            // White whether or not it has been read: dimming the subject made an opened
-            // issue unreadable on a matte greyscale panel. Unread is carried by the dot,
-            // which exists precisely because brightness is the only signal this display
-            // renders reliably.
+            // Greyed once read — but only here. The subject at the top of the article
+            // itself keeps full contrast, because by then you're reading it rather than
+            // scanning for it.
             Text(
                 subject,
                 style = MaterialTheme.typography.bodyLarge,
-                color = Color.White,
+                color = if (unread) Color.White else ReadTitle,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 3.dp),

@@ -20,6 +20,12 @@ private val MonoDark = darkColorScheme(
 
 /** Secondary text. Bright for a grey: the panel is matte and eats contrast. */
 val Dim = Color(0xFFB8B8B8)
+
+/**
+ * An already-read subject in the list. Greyer than white so the state reads at a glance,
+ * but nowhere near the old 0x9A that made an opened issue unreadable on this panel.
+ */
+val ReadTitle = Color(0xFFAAAAAA)
 val RuleGrey = Color(0xFF262626)
 
 @Composable
