@@ -5,7 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color as AndroidColor
 import android.net.Uri
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -39,6 +41,56 @@ object WebViewSupport {
     }
 }
 
+/**
+ * A WebView that claims the gesture as soon as the drag is vertical.
+ *
+ * Inside a HorizontalPager, Compose sees every pointer event first, and a scroll that
+ * starts a few degrees off vertical gets claimed by the pager — so the article jerks, the
+ * fling dies halfway, and sometimes you turn the page while trying to read. There is no
+ * nested-scroll contract between a View and a Compose scrollable to fall back on:
+ * requestDisallowInterceptTouchEvent is the mechanism, and Compose's AndroidView host
+ * honours it.
+ *
+ * The decision waits for the first ACTION_MOVE past the touch slop. Claiming on ACTION_DOWN
+ * would be simpler and would break paging entirely, because the pager would never get a
+ * horizontal drag at all.
+ */
+private class ReaderWebView(context: Context) : WebView(context) {
+
+    private val slop = ViewConfiguration.get(context).scaledTouchSlop
+    private var downX = 0f
+    private var downY = 0f
+    private var decided = false
+
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = event.x
+                downY = event.y
+                decided = false
+            }
+
+            MotionEvent.ACTION_MOVE -> if (!decided) {
+                val dx = kotlin.math.abs(event.x - downX)
+                val dy = kotlin.math.abs(event.y - downY)
+                if (dy > slop && dy > dx) {
+                    // Reading. Mine until the finger lifts.
+                    decided = true
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                } else if (dx > slop && dx >= dy) {
+                    // Turning the page. Let the pager have it.
+                    decided = true
+                }
+            }
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                parent?.requestDisallowInterceptTouchEvent(false)
+        }
+        return super.onTouchEvent(event)
+    }
+}
+
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun HtmlView(
@@ -50,7 +102,7 @@ fun HtmlView(
     AndroidView(
         modifier = modifier,
         factory = { context ->
-            WebView(context).apply {
+            ReaderWebView(context).apply {
                 settings.apply {
                     // Newsletters are documents. No newsletter needs a script, and off is
                     // both faster and one fewer way for an email to do something clever.
@@ -60,6 +112,10 @@ fun HtmlView(
                     // CSS px on a 1080-wide 3.92" panel is small; floor it.
                     minimumFontSize = 14
                     minimumLogicalFontSize = 14
+                    // Pinch-zoom stays, but a zoomed page can be panned horizontally, and a
+                    // horizontal pan is indistinguishable from turning the page. Text is
+                    // already reflowed to the panel width, so the zoom is a rarely-needed
+                    // escape hatch rather than the way the app is meant to be read.
                     builtInZoomControls = true
                     displayZoomControls = false
                     useWideViewPort = false

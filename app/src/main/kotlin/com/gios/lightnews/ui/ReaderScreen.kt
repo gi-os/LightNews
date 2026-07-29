@@ -2,9 +2,7 @@ package com.gios.lightnews.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -38,7 +36,6 @@ import com.gios.lightnews.data.NewsletterEntity
 import com.gios.lightnews.data.Rendered
 import com.gios.lightnews.ui.theme.Dim
 import com.gios.lightnews.util.RenderMode
-import com.gios.lightnews.util.formatWhen
 import kotlinx.coroutines.delay
 
 /**
@@ -172,9 +169,9 @@ private fun ArticlePage(vm: NewsViewModel, item: NewsletterEntity) {
         rendered = vm.rendered(item.id, webViewAvailable)
     }
 
-    Column(Modifier.fillMaxSize()) {
-        ArticleHeader(item)
-        Rule()
+    // No Compose header any more: subject, sender and date are part of the document, so
+    // the page holds exactly one scroller and the title scrolls away with the copy.
+    Box(Modifier.fillMaxSize()) {
         when (val body = rendered) {
             null -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                 Text("Opening…", style = MaterialTheme.typography.bodyMedium, color = Dim)
@@ -198,32 +195,6 @@ private fun ArticlePage(vm: NewsViewModel, item: NewsletterEntity) {
                         .padding(horizontal = 18.dp, vertical = 14.dp),
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun ArticleHeader(item: NewsletterEntity) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp)) {
-        Text(
-            item.subject,
-            style = MaterialTheme.typography.titleLarge,
-            color = Color.White,
-        )
-        Row(Modifier.padding(top = 6.dp)) {
-            Text(
-                item.fromEmail,
-                style = MaterialTheme.typography.labelSmall,
-                color = Dim,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            Text(
-                "  ${formatWhen(item.dateMs)}",
-                style = MaterialTheme.typography.labelSmall,
-                color = Dim,
-            )
         }
     }
 }

@@ -7,8 +7,10 @@ import com.gios.lightnews.gmail.GmailClient
 import com.gios.lightnews.gmail.GmailHttpError
 import com.gios.lightnews.gmail.InlineImage
 import com.gios.lightnews.gmail.RawMessage
+import com.gios.lightnews.util.ArticleMeta
 import com.gios.lightnews.util.HtmlRewriter
 import com.gios.lightnews.util.RenderMode
+import com.gios.lightnews.util.formatWhen
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -186,21 +188,36 @@ class NewsRepository private constructor(context: Context) {
     suspend fun rendered(id: String, webViewAvailable: Boolean): Rendered =
         withContext(Dispatchers.IO) {
             runCatching {
+                val row = dao.get(id)
+                val meta = row?.let {
+                    ArticleMeta(it.subject, it.fromEmail, formatWhen(it.dateMs))
+                }
                 val html = bodyFile(id).takeIf { it.length() > 0L }?.readText()
                 if (html == null) {
                     val text = textFile(id).takeIf { it.length() > 0L }?.readText()
-                    return@runCatching if (text != null) Rendered.Text(text) else snippet(id)
+                    return@runCatching if (text != null) {
+                        Rendered.Text(headed(meta, text))
+                    } else {
+                        snippet(id)
+                    }
                 }
                 if (webViewAvailable) {
-                    Rendered.Html(HtmlRewriter.rewrite(html, renderMode, loadImages))
+                    Rendered.Html(HtmlRewriter.rewrite(html, renderMode, loadImages, meta))
                 } else {
-                    Rendered.Text(HtmlRewriter.toReadableText(html))
+                    Rendered.Text(HtmlRewriter.toReadableText(html, meta))
                 }
             }.getOrElse { snippet(id) }
         }
 
-    private suspend fun snippet(id: String): Rendered.Text =
-        Rendered.Text(runCatching { dao.get(id)?.snippet }.getOrNull().orEmpty())
+    private fun headed(meta: ArticleMeta?, body: String): String =
+        if (meta == null) body else "${meta.subject}\n${meta.from} · ${meta.date}\n\n$body"
+
+    private suspend fun snippet(id: String): Rendered.Text = Rendered.Text(
+        runCatching {
+            val row = dao.get(id) ?: return@runCatching ""
+            headed(ArticleMeta(row.subject, row.fromEmail, formatWhen(row.dateMs)), row.snippet)
+        }.getOrNull().orEmpty(),
+    )
 
     /* ---------------------------------------------------------------------- sync */
 

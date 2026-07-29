@@ -8,6 +8,9 @@ import org.jsoup.nodes.Element
 
 enum class RenderMode { DARK, PAPER }
 
+/** What the reader puts above the copy: who sent it, what it's called, when it landed. */
+data class ArticleMeta(val subject: String, val from: String, val date: String)
+
 /**
  * Newsletter HTML, rewritten for a 1080x1240 monochrome panel.
  *
@@ -38,7 +41,12 @@ object HtmlRewriter {
         return doc.outerHtml()
     }
 
-    fun rewrite(rawHtml: String, mode: RenderMode, loadImages: Boolean): String {
+    fun rewrite(
+        rawHtml: String,
+        mode: RenderMode,
+        loadImages: Boolean,
+        meta: ArticleMeta? = null,
+    ): String {
         val doc = Jsoup.parse(rawHtml)
         doc.outputSettings().prettyPrint(false)
 
@@ -67,12 +75,33 @@ object HtmlRewriter {
                 .attr("content", "width=device-width, initial-scale=1, maximum-scale=3"),
         )
         head(doc).appendChild(Element("style").appendText(if (mode == RenderMode.DARK) DARK_CSS else PAPER_CSS))
+        meta?.let { prependHeader(doc, it) }
         // Links open in the system browser; see the WebViewClient in HtmlView.
         return doc.outerHtml()
     }
 
+    /**
+     * Subject, sender and date as part of the document rather than a bar above it.
+     *
+     * It used to be a Compose header pinned over the WebView, which meant two scrollable
+     * things stacked on one 3.9" screen and a title that ate a fifth of it on every
+     * article. In here it scrolls away with the copy, and the page has exactly one
+     * scroller — which is also what stops the pager and the WebView fighting over a drag.
+     */
+    private fun prependHeader(doc: Document, meta: ArticleMeta) {
+        val header = Element("header").addClass("ln-head")
+        header.appendChild(Element("h1").addClass("ln-subject").text(meta.subject))
+        header.appendChild(
+            Element("p").addClass("ln-meta").text(listOf(meta.from, meta.date).joinToString(" · ")),
+        )
+        // Built through the DOM, not string concatenation: a subject line containing a
+        // stray < or & would otherwise rewrite the document.
+        doc.body().prependChild(Element("hr").addClass("ln-rule"))
+        doc.body().prependChild(header)
+    }
+
     /** Plain text, for the case where LightOS turns out to ship no WebView provider. */
-    fun toReadableText(rawHtml: String): String {
+    fun toReadableText(rawHtml: String, meta: ArticleMeta? = null): String {
         val doc = Jsoup.parse(rawHtml)
         doc.select("script, style, head").remove()
         doc.select("br").after("\n")
@@ -88,7 +117,8 @@ object HtmlRewriter {
             }
         }
         // wholeText keeps the newlines injected above, which is the entire trick.
-        return doc.body().wholeText()
+        val heading = meta?.let { "${it.subject}\n${it.from} · ${it.date}\n\n" }.orEmpty()
+        return heading + doc.body().wholeText()
             .replace(Regex("[ \\t]+"), " ")
             .replace(Regex("\n{3,}"), "\n\n")
             .lines().joinToString("\n") { it.trim() }
@@ -200,6 +230,17 @@ object HtmlRewriter {
         blockquote { margin: 0 0 1em 2px; padding-left: 12px; border-left: 2px solid #3a3a3a; }
         pre, code { white-space: pre-wrap; font-family: monospace !important; font-size: 15px; }
         ul, ol { padding-left: 22px; }
+
+        /* The article header. Sits in the document so it scrolls away with the copy. */
+        .ln-head { margin: 0 0 14px; }
+        .ln-subject {
+          font-size: 22px !important; font-weight: 500; line-height: 1.25; margin: 0 0 6px;
+        }
+        .ln-meta {
+          font-size: 12px !important; letter-spacing: 1.2px !important; text-transform: uppercase;
+          color: #9a9a9a !important; margin: 0;
+        }
+        .ln-rule { border: 0; border-top: 1px solid #2b2b2b; margin: 0 0 18px; }
     """.trimIndent()
 
     private val PAPER_CSS = """
@@ -215,5 +256,13 @@ object HtmlRewriter {
         * { max-width: 100% !important; }
         table, tbody, tr, td, th { width: auto !important; }
         img, video, iframe { max-width: 100% !important; height: auto !important; }
+
+        /* PAPER keeps the newsletter's palette, so the header has to sit on white. */
+        .ln-head { margin: 0; padding: 14px 18px 0; background: #fff !important; }
+        .ln-subject { font-size: 22px !important; font-weight: 600; line-height: 1.25;
+                      margin: 0 0 6px; color: #111 !important; }
+        .ln-meta { font-size: 12px !important; letter-spacing: 1.2px; text-transform: uppercase;
+                   color: #666 !important; margin: 0; }
+        .ln-rule { border: 0; border-top: 1px solid #ddd; margin: 14px 18px 16px; }
     """.trimIndent()
 }
