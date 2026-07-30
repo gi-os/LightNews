@@ -44,6 +44,15 @@ val LocalWheelBus = staticCompositionLocalOf<WheelBus?> { null }
 private val NOTCH = 64.dp
 
 /**
+ * Which way a notch moves the page.
+ *
+ * `1` means turning the wheel up moves you *down* the document — the wheel drags the page
+ * the way a finger flick does, rather than moving a viewport over it. Flip to `-1` for the
+ * mouse-wheel convention.
+ */
+private const val DIRECTION = 1
+
+/**
  * Run [onNotch] for every notch while [active].
  *
  * [active] exists for the reader: `beyondViewportPageCount = 1` keeps the neighbouring
@@ -71,8 +80,7 @@ fun WheelNotches(active: Boolean = true, onNotch: suspend (Int) -> Unit) {
 fun WheelScroll(state: ScrollableState, active: Boolean = true) {
     val step = with(LocalDensity.current) { NOTCH.toPx() }
     WheelNotches(active) { notches ->
-        // Wheel up moves up the document, so the scroll offset decreases.
-        state.scrollBy(-notches * step)
+        state.scrollBy(notches * step * DIRECTION)
     }
 }
 
@@ -81,7 +89,7 @@ fun WheelScroll(state: ScrollableState, active: Boolean = true) {
 fun WheelScroll(web: WebView?, active: Boolean = true) {
     val step = with(LocalDensity.current) { NOTCH.toPx() }.toInt()
     WheelNotches(active && web != null) { notches ->
-        web?.wheelScrollBy(-notches * step)
+        web?.wheelScrollBy(notches * step * DIRECTION)
     }
 }
 
