@@ -3,11 +3,17 @@ package com.gios.lightnews
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -15,6 +21,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.gios.lightnews.hw.Brightness
+import com.gios.lightnews.hw.LightControls
+import com.gios.lightnews.hw.LocalWheelBus
+import com.gios.lightnews.hw.WheelBus
+import com.gios.lightnews.ui.BrightnessReadout
 import com.gios.lightnews.ui.ListScreen
 import com.gios.lightnews.ui.NewsViewModel
 import com.gios.lightnews.ui.ReaderScreen
@@ -28,6 +39,28 @@ class MainActivity : ComponentActivity() {
 
     /** The OAuth redirect, waiting to be handed to the ViewModel once composition runs. */
     private val redirect = MutableStateFlow<Uri?>(null)
+
+    /** Wheel notches on their way to whichever screen is up. */
+    private val wheel = WheelBus()
+
+    /** The brightness percentage to flash on screen, or null for nothing. */
+    private val brightnessReadout = MutableStateFlow<Int?>(null)
+
+    private val controls by lazy {
+        LightControls(
+            activity = this,
+            wheel = wheel,
+            brightness = Brightness(this),
+            onBrightnessChanged = { percent -> brightnessReadout.value = percent },
+        )
+    }
+
+    /**
+     * Every hardware key arrives here first — `DecorView` calls the window callback before
+     * it walks the view hierarchy — which is what lets the wheel beat a focused WebView.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
+        controls.dispatch(event) || super.dispatchKeyEvent(event)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -78,32 +111,41 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                NavHost(nav, startDestination = "list") {
-                    composable("list") {
-                        ListScreen(
-                            vm = vm,
-                            onOpen = { id -> nav.navigate("reader/$id") },
-                            onSettings = { nav.navigate("settings") },
-                            onSignIn = { startSignIn() },
-                        )
-                    }
-                    composable(
-                        "reader/{id}",
-                        arguments = listOf(navArgument("id") { type = NavType.StringType }),
-                    ) { entry ->
-                        ReaderScreen(
-                            vm = vm,
-                            startId = entry.arguments!!.getString("id")!!,
-                            onBack = { nav.popBackStack() },
-                        )
-                    }
-                    composable("settings") {
-                        SettingsScreen(
-                            vm = vm,
-                            onSignIn = { startSignIn() },
-                            onScanClientId = { startScan() },
-                            onBack = { nav.popBackStack() },
-                        )
+                // Every screen below can reach the wheel; the readout sits above all of
+                // them, because brightness is adjustable wherever you happen to be.
+                CompositionLocalProvider(LocalWheelBus provides wheel) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                        NavHost(nav, startDestination = "list") {
+                            composable("list") {
+                                ListScreen(
+                                    vm = vm,
+                                    onOpen = { id -> nav.navigate("reader/$id") },
+                                    onSettings = { nav.navigate("settings") },
+                                    onSignIn = { startSignIn() },
+                                )
+                            }
+                            composable(
+                                "reader/{id}",
+                                arguments = listOf(navArgument("id") { type = NavType.StringType }),
+                            ) { entry ->
+                                ReaderScreen(
+                                    vm = vm,
+                                    startId = entry.arguments!!.getString("id")!!,
+                                    onBack = { nav.popBackStack() },
+                                )
+                            }
+                            composable("settings") {
+                                SettingsScreen(
+                                    vm = vm,
+                                    onSignIn = { startSignIn() },
+                                    onScanClientId = { startScan() },
+                                    onBack = { nav.popBackStack() },
+                                )
+                            }
+                        }
+
+                        val percent by brightnessReadout.collectAsStateWithLifecycle()
+                        BrightnessReadout(percent) { brightnessReadout.value = null }
                     }
                 }
             }

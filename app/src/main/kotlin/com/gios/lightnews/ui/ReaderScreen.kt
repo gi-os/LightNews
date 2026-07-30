@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gios.lightnews.data.NewsletterEntity
 import com.gios.lightnews.data.Rendered
+import com.gios.lightnews.hw.WheelScroll
 import com.gios.lightnews.ui.theme.Dim
 import com.gios.lightnews.util.RenderMode
 import kotlinx.coroutines.delay
@@ -155,6 +156,9 @@ private fun Pages(
             ArticlePage(
                 vm = vm,
                 item = ordered[page],
+                // beyondViewportPageCount keeps the neighbours composed, and all three
+                // would answer the wheel if they were allowed to.
+                active = page == pager.currentPage,
                 // The WebView swallows every touch that lands on an article, so it is also
                 // the thing that tells us a page turn was meant.
                 onSwipe = { direction ->
@@ -170,6 +174,7 @@ private fun Pages(
 private fun ArticlePage(
     vm: NewsViewModel,
     item: NewsletterEntity,
+    active: Boolean,
     onSwipe: (Int) -> Unit,
 ) {
     val context = LocalContext.current
@@ -199,18 +204,23 @@ private fun ArticlePage(
                 loadImages = settings.images,
                 modifier = Modifier.fillMaxSize(),
                 onSwipe = onSwipe,
+                wheelActive = active,
             )
 
-            is Rendered.Text -> SelectionContainer {
-                Text(
-                    body.body.ifBlank { "Nothing cached for this issue yet." },
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 18.dp, vertical = 14.dp),
-                )
+            is Rendered.Text -> {
+                val scroll = rememberScrollState()
+                WheelScroll(scroll, active)
+                SelectionContainer {
+                    Text(
+                        body.body.ifBlank { "Nothing cached for this issue yet." },
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(scroll)
+                            .padding(horizontal = 18.dp, vertical = 14.dp),
+                    )
+                }
             }
         }
     }

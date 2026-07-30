@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gios.lightnews.BuildConfig
+import com.gios.lightnews.hw.WheelScroll
 import com.gios.lightnews.ui.theme.Dim
 import com.gios.lightnews.util.RenderMode
 import com.gios.lightnews.util.formatAge
@@ -45,6 +46,9 @@ fun SettingsScreen(
     var editingLabel by remember { mutableStateOf(false) }
     var editingClientId by remember { mutableStateOf(false) }
 
+    val scroll = rememberScrollState()
+    WheelScroll(scroll)
+
     Scaffold(
         containerColor = Color.Black,
         topBar = {
@@ -60,7 +64,7 @@ fun SettingsScreen(
         },
     ) { pad ->
         Column(
-            Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState()),
+            Modifier.padding(pad).fillMaxSize().verticalScroll(scroll),
         ) {
             SectionLabel("MAILBOX")
             MenuRow(

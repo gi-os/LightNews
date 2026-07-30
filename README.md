@@ -76,6 +76,51 @@ drops the cached bodies and refetches them; there is no way to add the art later
 Marking read happens when a page has *settled* for 1.5s, not on page change. Flicking
 past six issues to reach the seventh should not silently clear all six.
 
+## The wheel and the camera button
+
+| Gesture | What happens |
+|---|---|
+| Turn the wheel | Scrolls — the list, the article, the settings page |
+| Hold the wheel in and turn | Brightness, with a readout at the bottom of the screen |
+| Click the wheel | Flashlight |
+| Camera button | Opens the Light camera |
+
+None of this is a hack, and none of it needed root. Light patched
+`/system/usr/keylayout/Generic.kl` — the layout every input device on the phone loads — so
+the wheel and camera button arrive as ordinary key events:
+
+```
+key 19    WHEEL_CCW      # wheel up       (Pixart pat9126ja, was R)
+key 20    WHEEL_CW       # wheel down     (Pixart pat9126ja, was T)
+key 66    WHEEL_CLICK    # wheel press    (gpio-keys, was F8)
+key 80    FOCUS          # camera stage 1 (gpio-keys, was NUMPAD_2)
+key 27    CAMERA         # camera stage 2 (gpio-keys, was RIGHT_BRACKET)
+```
+
+The wheel is not a rotary encoder — it's an optical sensor firing one discrete DOWN+UP
+pair per notch, ~35–60 ms apart, so `AXIS_SCROLL` and `onRotaryScrollEvent` never see
+anything. Nothing intercepts these keys in `PhoneWindowManager` either: they go to the
+focused window, which is why brightness and the flashlight look broken in every sideloaded
+app on the phone. The behaviour lives in Light's own app layer, so an app that ignores the
+keycode gets nothing at all. `hw/LightControls.kt` is that missing layer.
+
+`WHEEL_CCW`, `WHEEL_CW` and `WHEEL_CLICK` aren't AOSP keycodes, so their integers are
+Light's to change. They're resolved by label at runtime with `KeyEvent.keyCodeFromString`,
+falling back to the raw Linux scancode — which is hardware, and can't move — gated on the
+device name, so a paired Bluetooth keyboard's `r` doesn't scroll the article.
+
+Brightness writes `Settings.System.SCREEN_BRIGHTNESS`, which needs an appop that LightOS
+has no Settings screen to grant:
+
+```bash
+adb shell appops set com.gios.lightnews WRITE_SETTINGS allow
+```
+
+Without it the wheel still works, but falls back to a window-level override that only dims
+this app and unwinds on the way out. The brightness *scale* is derived rather than assumed
+— 255 is common but 1023, 2047 and 4095 all ship — by dividing the int setting by its
+`screen_brightness_float` mirror.
+
 ## Setup
 
 It's about ten minutes, and eight of them are Google's.
@@ -192,6 +237,10 @@ data/NewsDatabase.kt     metadata only — bodies are files under filesDir/bodie
 sync/SyncWorker.kt       hourly, unmetered
 ui/ReaderScreen.kt       HorizontalPager, dwell-to-read
 ui/HtmlView.kt           WebView with JS off, plus the provider probe
+hw/LightKeys.kt          the wheel/camera keycodes, resolved by label then by scancode
+hw/LightControls.kt      the gesture split: scroll, press-and-turn brightness, torch
+hw/Brightness.kt         system brightness with a derived scale, window-level fallback
+hw/Wheel.kt              notches from the activity to whichever scroller is on screen
 docs/index.html          the client-ID QR page, all client-side
 ```
 

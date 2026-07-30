@@ -11,9 +11,14 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import com.gios.lightnews.hw.WheelScroll
 import com.gios.lightnews.util.RenderMode
 
 /**
@@ -107,10 +112,18 @@ fun HtmlView(
     loadImages: Boolean,
     modifier: Modifier = Modifier,
     onSwipe: (Int) -> Unit = {},
+    wheelActive: Boolean = true,
 ) {
     // Held in a ref so the factory's callback always reaches the current lambda rather
     // than the one captured when the WebView was created.
     val swipe = rememberUpdatedState(onSwipe)
+
+    // The wheel scrolls the document. Chromium has no idea what WHEEL_CW is, and there is
+    // no nested-scroll bridge from a View to Compose, so the scroll is applied by hand to
+    // the WebView that is actually on screen.
+    var webRef by remember { mutableStateOf<WebView?>(null) }
+    WheelScroll(webRef, wheelActive)
+
     AndroidView(
         modifier = modifier,
         factory = { context ->
@@ -163,6 +176,7 @@ fun HtmlView(
             }
         },
         update = { web ->
+            webRef = web
             web.settings.loadsImagesAutomatically = loadImages
             web.settings.blockNetworkImage = !loadImages
             web.setBackgroundColor(if (mode == RenderMode.DARK) AndroidColor.BLACK else AndroidColor.WHITE)
@@ -173,7 +187,10 @@ fun HtmlView(
                 web.loadDataWithBaseURL(BASE_URL, document, "text/html", "UTF-8", null)
             }
         },
-        onRelease = { it.destroy() },
+        onRelease = {
+            webRef = null
+            it.destroy()
+        },
     )
 }
 

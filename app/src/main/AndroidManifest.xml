@@ -6,6 +6,18 @@
     <!-- Only ever used to scan the OAuth client id QR; nothing here takes a photo. -->
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!--
+      Brightness, for the hardware wheel. This is an appop rather than a runtime
+      permission, and LightOS has no Settings screen to send the user to, so it is granted
+      once over adb:
+
+        adb shell appops set com.gios.lightnews WRITE_SETTINGS allow
+
+      Without the grant the wheel falls back to a window-level brightness override, which
+      needs no permission but only dims this app.
+    -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
     <!--

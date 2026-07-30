@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Refresh
@@ -25,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.gios.lightnews.hw.WheelScroll
 import com.gios.lightnews.ui.theme.Dim
 import com.gios.lightnews.util.formatAge
 
@@ -40,6 +42,10 @@ fun ListScreen(
     val unread by vm.unreadCount.collectAsStateWithLifecycle()
     val state by vm.state.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
+
+    // The wheel drives the list the way it drives an article.
+    val listState = rememberLazyListState()
+    WheelScroll(listState)
 
     Scaffold(
         containerColor = Color.Black,
@@ -115,7 +121,7 @@ fun ListScreen(
                     onAction = { vm.sync() },
                 )
 
-                else -> LazyColumn(Modifier.fillMaxSize()) {
+                else -> LazyColumn(Modifier.fillMaxSize(), state = listState) {
                     items(items, key = { it.id }) { item ->
                         ListRow(
                             sender = item.fromName,
