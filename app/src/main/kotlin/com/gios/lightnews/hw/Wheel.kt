@@ -86,11 +86,15 @@ fun WheelScroll(web: WebView?, active: Boolean = true) {
 }
 
 /**
- * WebView scrolls past its content quite happily, leaving the document parked off screen,
- * so the range is clamped by hand. `computeVerticalScrollRange` is the rendered height,
- * which is what `scrollTo` is measured against.
+ * Scrolling the document, bounded at both ends.
+ *
+ * `canScrollVertically` is the public way to ask — `computeVerticalScrollRange` is
+ * protected on View, and the content height is only available in CSS pixels that would
+ * have to be scaled back by hand. Asking first also means a notch at the bottom of a
+ * newsletter does nothing at all, rather than nudging the last line off screen.
  */
 private fun WebView.wheelScrollBy(px: Int) {
-    val limit = (computeVerticalScrollRange() - height).coerceAtLeast(0)
-    scrollTo(scrollX, (scrollY + px).coerceIn(0, limit))
+    if (px == 0) return
+    if (!canScrollVertically(if (px > 0) 1 else -1)) return
+    scrollBy(0, px)
 }
