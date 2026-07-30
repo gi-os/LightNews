@@ -81,6 +81,7 @@ past six issues to reach the seventh should not silently clear all six.
 | Gesture | What happens |
 |---|---|
 | Turn the wheel | Scrolls — the list, the article, the settings page |
+| One stray notch | Nothing. See the bump guard below |
 | Hold the wheel in and turn | Brightness, with a readout at the bottom of the screen |
 | Click the wheel | Flashlight |
 | Camera button | Opens the Light camera |
@@ -108,6 +109,18 @@ keycode gets nothing at all. `hw/LightControls.kt` is that missing layer.
 Light's to change. They're resolved by label at runtime with `KeyEvent.keyCodeFromString`,
 falling back to the raw Linux scancode — which is hardware, and can't move — gated on the
 device name, so a paired Bluetooth keyboard's `r` doesn't scroll the article.
+
+Scrolling is frame-timed rather than applied on arrival. The sensor fires a notch every
+~35 ms — faster than a frame — so acting on each one produces a stack of instant jumps with
+nothing for your eye to follow. Instead every notch adds to a distance owed and each frame
+pays off 28% of it, so a single notch glides and a fast spin becomes one continuous sweep that
+coasts slightly past your thumb.
+
+There's also a bump guard, because the wheel sits under a thumb and catches stray brushes. The
+first notch after a pause is held back and only released when a second one confirms it was
+deliberate; once you're turning, everything applies immediately until the wheel has been still
+for 1.5 s. So a bump costs nothing and a deliberate turn loses nothing — the held notch is
+released along with the one that freed it.
 
 Brightness writes `Settings.System.SCREEN_BRIGHTNESS`, which needs an appop that LightOS
 has no Settings screen to grant:
@@ -240,7 +253,7 @@ ui/HtmlView.kt           WebView with JS off, plus the provider probe
 hw/LightKeys.kt          the wheel/camera keycodes, resolved by label then by scancode
 hw/LightControls.kt      the gesture split: scroll, press-and-turn brightness, torch
 hw/Brightness.kt         system brightness with a derived scale, window-level fallback
-hw/Wheel.kt              notches from the activity to whichever scroller is on screen
+hw/Wheel.kt              notches → a per-frame glide, with the bump guard
 docs/index.html          the client-ID QR page, all client-side
 ```
 
