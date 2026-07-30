@@ -5,6 +5,9 @@ Swipe left for the next issue, and reading one actually marks it read in Gmail.
 
 No inbox, no compose, no threads, no search. If it isn't in the label, it doesn't exist.
 
+**Current release: v1.0.15** (tag `v1.0.15`). Package `com.gios.lightnews`, Gmail label
+`LightNewsletter` by default.
+
 > ### ⚠ Experimental — v1, never run on hardware
 >
 > This has not been installed on a Light Phone III, or on any phone. It was written
@@ -324,6 +327,52 @@ Two behaviours worth knowing because they are quiet:
   list in one page. So while more than 100 messages in the label are unread, marking one
   read in the Gmail web app won't be reflected here — silence from a truncated page is
   not evidence that something was read.
+
+## Contributing
+
+There is no Android SDK available in every environment this gets built in, so the review process
+leans on a few things instead of a device:
+
+- `./gradlew :app:assembleDebug` / `:app:assembleRelease` is the whole toolchain check — Kotlin
+  compiles, Room's KSP pass generates, resources and the manifest merge, signing succeeds. It says
+  nothing about runtime behavior.
+- Two adversarial review passes on the initial version found and fixed 17 runtime bugs (read-state
+  corruption, a refetch that erased offline reads, orphaned cache files, a deadlock risk, a regex
+  that ate legitimate images) — the fixes and their reasoning live as comments at the call site, not
+  in a changelog. Read the comment before changing the code near it.
+- PRs touching `data/NewsRepository.kt` (sync/reconciliation) or `util/Html.kt` (rendering) should
+  explain the edge case they change, the same way the existing comments do — those two files are
+  where all 17 bugs above were found.
+- If you have a Light Phone III, the most valuable contribution right now is simply running it and
+  reporting what breaks: the redirect handoff, how a real newsletter renders, and the sync edge
+  cases are all reasoned-not-observed. See the warning banner above for specifics.
+
+## Version history
+
+Every push to `main` cuts a signed release tagged `v<major>.<minor>.<run number>` — see the CI
+workflow under `.github/workflows/`. `<run number>` is the GitHub Actions run number, so the tag
+moves without `versionName` in `app/build.gradle.kts` (which stays `1.0.0`) ever changing. A push can
+bundle more than one commit; only the push's final commit carries the tag.
+
+- **v1.0.15** (2026-07-29) — Documented what the wheel needs and what LightControl adds on top.
+- **v1.0.14** (2026-07-29) — Wheel scrolling glides frame-to-frame instead of jumping, and a single
+  stray notch is ignored (bump guard).
+- **v1.0.13** (2026-07-29) — Wheel direction fixed: turning up scrolls down the page.
+- **v1.0.12** (2026-07-29) — Wheel-driven WebView scroll bounded by `canScrollVertically`.
+- **v1.0.10** (2026-07-29) — The wheel and camera button wired up end to end.
+- **v1.0.9** (2026-07-29) — Ad blocking for newsletters (network-level + label-pattern removal).
+- **v1.0.8** (2026-07-29) — Single gesture arbiter in the reader, fixing scroll that stuck partway.
+- **v1.0.7** (2026-07-29) — Legibility pass: a read subject stays white, secondary text one notch
+  brighter.
+- **v1.0.6** (2026-07-29) — Reader header moved into the scrolling document; stopped the pager from
+  stealing scroll gestures.
+- **v1.0.5** (2026-07-29) — Sign-in fixed: dropped AppAuth for a hand-rolled PKCE flow, plus the
+  no-browser (`scripts/authorize.py`) path.
+- **v1.0.4** (2026-07-29) — Client ID moved to runtime (QR/paste), so a plain release APK needs no
+  baked-in secret; fixed the SCAN QR button.
+- **v1.0.2** (2026-07-29) — README updated to reflect that CI proves the build (KSP no longer an open
+  question).
+- **v1.0.1** (2026-07-29) — Initial release: one Gmail label, swipe to read.
 
 ## Not doing
 
