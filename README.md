@@ -86,6 +86,11 @@ past six issues to reach the seventh should not silently clear all six.
 | Click the wheel | Flashlight |
 | Camera button | Opens the Light camera |
 
+All of that works with LightNews and nothing else installed. There is no companion service to
+enable and nothing to grant — the keys arrive at whichever app has focus, and this one reads
+them. The only grant anywhere near it is the brightness appop at the end of this section, and
+the wheel scrolls perfectly well without it.
+
 None of this is a hack, and none of it needed root. Light patched
 `/system/usr/keylayout/Generic.kl` — the layout every input device on the phone loads — so
 the wheel and camera button arrive as ordinary key events:
@@ -103,7 +108,9 @@ pair per notch, ~35–60 ms apart, so `AXIS_SCROLL` and `onRotaryScrollEvent` ne
 anything. Nothing intercepts these keys in `PhoneWindowManager` either: they go to the
 focused window, which is why brightness and the flashlight look broken in every sideloaded
 app on the phone. The behaviour lives in Light's own app layer, so an app that ignores the
-keycode gets nothing at all. `hw/LightControls.kt` is that missing layer.
+keycode gets nothing at all. `hw/LightControls.kt` is that layer for this app, and
+[LightControl](https://github.com/gi-os/LightControl) is the same idea for the rest of the
+phone — see the end of this section.
 
 `WHEEL_CCW`, `WHEEL_CW` and `WHEEL_CLICK` aren't AOSP keycodes, so their integers are
 Light's to change. They're resolved by label at runtime with `KeyEvent.keyCodeFromString`,
@@ -133,6 +140,38 @@ Without it the wheel still works, but falls back to a window-level override that
 this app and unwinds on the way out. The brightness *scale* is derived rather than assumed
 — 255 is common but 1023, 2047 and 4095 all ship — by dividing the int setting by its
 `screen_brightness_float` mirror.
+
+### LightControl, for the same thing everywhere else
+
+[LightControl](https://github.com/gi-os/LightControl) is a separate app and entirely
+optional. It gives the whole phone what this section gives LightNews: press-and-turn
+brightness, a tap for the flashlight, the camera button for the camera — and each of those
+rebindable, tap and hold told apart, to any app you have installed. Apps with no wheel code
+of their own get brightness or a synthetic-swipe scroll out of a bare turn.
+
+Installing it does not cost you scrolling here. It's a phone-wide key filter, and it passes
+bare turns straight through to `com.gios.*` (plus LightFastread, LightRSS and LightPhono),
+because per-notch scrolling inside the app is better than anything reachable from outside it.
+What it does take over is the click, press-and-turn and the camera button, so those come from
+LightControl rather than from `hw/LightControls.kt`, and the `WRITE_SETTINGS` grant that
+matters is then LightControl's rather than this app's.
+
+```bash
+# Optional: LightControl, for brightness, the flashlight and the camera button
+adb install -r LightControl-v1.0.x.apk
+
+# The key service. NOTE: this setting is a list, and this command REPLACES it —
+# if you also run LightVoice's push-to-talk, colon-join both components instead.
+adb shell settings put secure enabled_accessibility_services \
+  com.gios.lightcontrol/com.gios.lightcontrol.keys.ControlService
+adb shell settings put secure accessibility_enabled 1
+
+# Brightness, and the level readout + opening apps from the service
+adb shell appops set com.gios.lightcontrol WRITE_SETTINGS allow
+adb shell appops set com.gios.lightcontrol SYSTEM_ALERT_WINDOW allow
+```
+
+Latest APK: https://github.com/gi-os/LightControl/releases/latest
 
 ## Setup
 
