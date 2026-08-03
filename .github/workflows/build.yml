@@ -3,6 +3,10 @@ name: Build & Release APK
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.github/workflows/check.yml'
+      - 'signing-fingerprint.txt'
   workflow_dispatch:
 
 permissions:
@@ -40,6 +44,10 @@ jobs:
         env:
           GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
         run: ./gradlew :app:assembleDebug :app:assembleRelease --stacktrace
+        env:
+          # Shake-to-report posts issues with this. Absent, the build still works —
+          # reports queue on the phone until a build that has the key installs over it.
+          REPORT_TOKEN: ${{ secrets.REPORT_TOKEN }}
 
       - name: Collect APK
         run: |

@@ -43,6 +43,21 @@ val clientId: String = run {
  */
 val redirectScheme = "com.gios.lightnews"
 
+/**
+ * The key shake-to-report posts issues with. Never in the repository: `local.properties` is
+ * ignored by git, and CI hands it in from a repository secret. An empty string is a working
+ * build — reports queue on the phone and go out from a later one that has the key.
+ */
+val reportToken: String = run {
+    val local = rootProject.file("local.properties")
+    val fromFile = if (local.exists()) {
+        Properties().apply { local.inputStream().use { load(it) } }.getProperty("reportToken")
+    } else {
+        null
+    }
+    fromFile ?: System.getenv("REPORT_TOKEN") ?: ""
+}
+
 android {
     namespace = "com.gios.lightnews"
     compileSdk = 35
@@ -54,7 +69,7 @@ android {
         targetSdk = 35
         // CI overwrites both from the workflow run number; see .github/workflows/build.yml
         versionCode = 1
-        versionName = "1.0.0"
+        versionName = "1.1.0"
 
         // The LPIII is arm64 only; shipping four ABIs tripled the APK for nothing.
         ndk { abiFilters += "arm64-v8a" }
@@ -123,4 +138,7 @@ dependencies {
     implementation("org.jsoup:jsoup:1.18.3")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    // The shake gesture is plain arithmetic with no Android imports, so it runs here.
+    testImplementation("junit:junit:4.13.2")
 }
