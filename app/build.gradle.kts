@@ -74,6 +74,9 @@ android {
         // The LPIII is arm64 only; shipping four ABIs tripled the APK for nothing.
         ndk { abiFilters += "arm64-v8a" }
 
+        buildConfigField("String", "REPORT_TOKEN", "\"$reportToken\"")
+        buildConfigField("String", "REPORT_REPO", "\"gi-os/light-reports\"")
+
         buildConfigField("String", "GMAIL_CLIENT_ID", "\"$clientId\"")
         buildConfigField("String", "OAUTH_REDIRECT", "\"$redirectScheme:/oauth2redirect\"")
     }
