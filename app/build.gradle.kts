@@ -69,7 +69,7 @@ android {
         targetSdk = 35
         // CI overwrites both from the workflow run number; see .github/workflows/build.yml
         versionCode = 1
-        versionName = "1.1.0"
+        versionName = "1.2.0"
 
         // The LPIII is arm64 only; shipping four ABIs tripled the APK for nothing.
         ndk { abiFilters += "arm64-v8a" }
@@ -111,6 +111,10 @@ android {
 }
 
 dependencies {
+    // Shake-to-report, and the shared hardware/type helpers. Was a vendored copy of the
+    // same code under com.gios.lightnews.report until this version.
+    implementation("com.gios:light-common:1.0.1")
+
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
     implementation("androidx.core:core-ktx:1.15.0")

@@ -34,8 +34,8 @@ import com.gios.lightnews.ui.theme.LightNewsTheme
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.flow.MutableStateFlow
-import com.gios.lightnews.report.CrashLog
-import com.gios.lightnews.report.ReportOverlay
+import com.gios.light.common.report.LightReport
+import com.gios.light.common.report.ReportOverlay
 
 class MainActivity : ComponentActivity() {
 
@@ -68,7 +68,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // First thing, before anything else can throw: the handler chains onto whatever is
         // already installed and only writes a file, so it is safe this early.
-        CrashLog.install(this)
+        LightReport.install(
+            context = this,
+            appName = "LightNews",
+            label = "news",
+            token = BuildConfig.REPORT_TOKEN,
+        )
         captureRedirect(intent)
 
         setContent {
