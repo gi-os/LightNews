@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gios.lightnews.data.NewsletterEntity
 import com.gios.lightnews.data.Rendered
-import com.gios.lightnews.hw.WheelScroll
+import com.gios.light.common.hw.WheelScroll
 import com.gios.lightnews.ui.theme.Dim
 import com.gios.lightnews.util.RenderMode
 import kotlinx.coroutines.delay

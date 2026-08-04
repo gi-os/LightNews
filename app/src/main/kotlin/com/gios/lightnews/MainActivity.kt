@@ -23,8 +23,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.gios.lightnews.hw.Brightness
 import com.gios.lightnews.hw.LightControls
-import com.gios.lightnews.hw.LocalWheelBus
-import com.gios.lightnews.hw.WheelBus
+import com.gios.light.common.hw.LocalWheelBus
+import com.gios.light.common.hw.WheelBus
 import com.gios.lightnews.ui.BrightnessReadout
 import com.gios.lightnews.ui.ListScreen
 import com.gios.lightnews.ui.NewsViewModel

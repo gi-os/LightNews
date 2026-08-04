@@ -28,7 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gios.lightnews.BuildConfig
-import com.gios.lightnews.hw.WheelScroll
+import com.gios.light.common.hw.WheelScroll
 import com.gios.lightnews.ui.theme.Dim
 import com.gios.lightnews.util.RenderMode
 import com.gios.lightnews.util.formatAge

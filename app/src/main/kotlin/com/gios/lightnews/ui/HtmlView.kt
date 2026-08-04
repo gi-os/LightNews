@@ -18,7 +18,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
-import com.gios.lightnews.hw.WheelScroll
+import com.gios.light.common.hw.WheelScroll
 import com.gios.lightnews.util.RenderMode
 
 /**
